@@ -1,0 +1,24 @@
+# Proprietary inputs, manifests, inspection notes, and extracted/decompiled data.
+/private/
+*.[dD][lL][lL]
+*.[eE][xX][eE]
+*.[pP][dD][bB]
+*.mdb
+*.assets
+*.bundle
+*.unity3d
+
+# Build, runtime, local environment, and tool scratch outputs.
+**/bin/
+**/obj/
+/dist/
+/build/
+/venv/
+/.venv/
+/.worktrees/
+/.superpowers/
+__pycache__/
+*.py[cod]
+*.log
+.env
+.env.*
