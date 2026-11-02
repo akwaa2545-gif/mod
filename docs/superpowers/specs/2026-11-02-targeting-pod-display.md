@@ -1,0 +1,17 @@
+# Targeting Pod Display experimental candidate
+
+Standalone BepInEx DLL; Observer is neither modified nor referenced. A-10-inspired original linework and compact green legends, not an aircraft-system simulation. This candidate preserves native sensor/weapon truth. No proprietary imagery or game code is distributed.
+
+## Capability phases
+1. Fail-closed local offline context and exact inspected-build fingerprint. Read-only native target-camera feed and weapon category. Selected targets are designation, never seeker lock.
+2. One owned presentation output reused in cockpit and fullscreen. Cockpit replacement requires exactly one RawImage matching native camera output beneath the cockpit's actual TacScreen.targetCamDisplay. Renderer-only/ambiguous/landing consumers remain untouched. Replace only texture and compare-before-restore. No shared materials, aircraft/control/firing changes.
+3. Native COLOR / IR (GAME) presentation plus original weapon-sensitive overlay. Native IR is not established heat imaging; true thermal and independently controlled night are unavailable. Native telemetry is retained in the source feed; overlay does not forge acquisition or release data.
+4. Manual sensor controls are capability-gated. This first guarded candidate cannot safely establish an independent input lease with Observer/native bindings; capture, slew, zoom, stabilization, recenter and custom designation remain unavailable, explicitly labeled. Native targeting controls continue normally. This is a partial implementation, not fulfillment of those requirements.
+
+Fullscreen is view-only and never claims input capture. It must close for pause, chat/map, focus loss, ownership/context changes, landing mode and loaded Observer (conservative conflict exclusion without dependency). Defaults require explicit opt-in; no startup takeover. No hotkey is assumed collision-free.
+
+## Acceptance
+Pure executable tests cover unique matching, compare/restore ownership, capability truth, weapon-category priority, generation reset and display aspect. Wiring checks prohibit writes/calls to weapon/flight state, material mutation, unsafe acquisition labels or Observer dependency. Compile against private references only; never execute game assemblies. Existing Observer tests must pass unchanged. Runtime checklist covers each cockpit, landing/detach, repeated enable/disable, stale output, same image/aspect fullscreen, native controls and both DLLs. No runtime-validation claim.
+
+## Implemented second-phase decision
+The initial capture limitation was resolved without suppression: an independent COLOR camera controlled exclusively by dedicated native-unmapped keyboard keys. This is not capture: flight controls remain live. No flight-control patches or writes exist. Exact Observer idle arbitration blocks fullscreen/drain/modal but permits Flight Hold, which owns separate native inputs. Unknown third-party raw-key handling requires explicit user confirmation after checking those mods; unrelated plugins are not blanket-disabled. Camera controls include bounded slew/FOV, recenter and inertial direction hold (not ground stabilization). True thermal/night and custom designation remain unavailable. Native/own-camera modes share one presentation output between cockpit and fullscreen. Separate target and landing consumers may share the unchanged native texture; only unique target descendant is replaced.
