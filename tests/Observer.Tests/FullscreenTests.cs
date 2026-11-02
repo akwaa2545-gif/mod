@@ -6,6 +6,7 @@ static class FullscreenTests
   ("fullscreen defaults to PiP and requires an eligible selected context",()=>{
    var s=new FullscreenState();Check(!s.Active&&!s.Toggle(false));Check(!s.Active&&s.Toggle(true)&&s.Active);Check(s.Toggle(false)&&!s.Active);
   }),
+  ("explicit Next may keep fullscreen only for the same valid pilot and a live target",()=>{var s=new FullscreenState();Check(!s.CanRetainManualSelection(true,true));s.Toggle(true);Check(s.CanRetainManualSelection(true,true));Check(!s.CanRetainManualSelection(false,true)&&!s.CanRetainManualSelection(true,false));}),
   ("fullscreen context or target loss exits and clears transient orbit",()=>{
    var s=new FullscreenState();s.Toggle(true);Check(s.Orbit(35,20));s.Ensure(false);Check(!s.Active&&s.Yaw==0&&s.Pitch==0);s.Ensure(false);Check(!s.Active);
   }),

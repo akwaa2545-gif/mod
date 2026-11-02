@@ -24,3 +24,15 @@ Do not extrapolate 0.1.1's user-confirmed PiP success to 0.2.0/0.3.0's new UI/in
 - Both loader-reference builds must report **0 warnings / 0 errors** before packaging.
 - Flight Hold master defaults OFF; TerrainAvoidance is an independent saved default-ON
   option, only effective while hold is active. No target speed/altitude entry.
+
+## 0.5.1 pilot/input correction
+
+The supplied0.5.0 log confirms repeated F11 pilot/cockpit guard rejection after
+compatibility passed, not the individual predicate. Static inspection identified
+the unused legacy playerControlled gate;0.5.1 replaces it with native local-player
+identity and specific rejection reasons. No claim of a passed game retest.
+
+Ownership transitions clear cached raw mouse-era steering as well as the stored HUD
+virtual stick; gameplay F9/F10 reuse persisted keys. **171/171** pure assertions and
+**71/71** Python checks pass before packaging; both loader builds must be0warnings/errors.
+All inherited runtime smoke rows remain pending unless separately evidenced.

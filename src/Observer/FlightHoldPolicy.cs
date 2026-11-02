@@ -38,6 +38,12 @@ namespace NuclearOptionObserver
         internal void Fault() { Active = false; Latched = true; }
         internal void Rearm() { if (!Active) { Latched = false; emptyFrame = -1; } }
     }
+    internal static class StoredSteering
+    {
+        internal static bool SameInputObjects(object capturedInputs, object currentInputs, object capturedPlayer, object currentPlayer) =>
+            capturedInputs != null && capturedPlayer != null && ReferenceEquals(capturedInputs, currentInputs) && ReferenceEquals(capturedPlayer, currentPlayer);
+        internal static void Clear(ref float pitch, ref float roll, ref float yaw) { pitch = roll = yaw = 0; }
+    }
     internal readonly struct ThrottleHandover
     {
         internal static bool Convert(float command, bool collective, bool invert, bool negative, out float value)

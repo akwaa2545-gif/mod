@@ -19,7 +19,7 @@ class ManualContractTests(unittest.TestCase):
   self.assertNotRegex(source,r'Cursor\.lockState\s*=(?!=)')
  def test_schema_and_manual_defaults(self):
   s=(ROOT/'Plugin.cs').read_text()
-  self.assertIn('"0.5.0"',s); self.assertIn('ObserverPreferences.Normalize',s)
+  self.assertIn('"0.5.1"',s); self.assertIn('ObserverPreferences.Normalize',s)
   self.assertNotIn('picture.SetVisible(true)',(ROOT/'GameBridge.cs').read_text())
   self.assertIn('InputPolicy.GameplayShortcutAllowed',s)
   self.assertIn('new ModalSurface(OnPanelClosed)',s)

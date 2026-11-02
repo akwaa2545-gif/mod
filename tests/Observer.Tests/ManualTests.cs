@@ -5,6 +5,14 @@ static class ManualTests
     static void Check(bool value) { if (!value) throw new Exception("manual behavior assertion failed"); }
     static MissileCandidate<object> Item(object target, ulong id=1, long epoch=0, string label="Missile owner") => new(target,id,epoch,label);
     public static (string Name, Action Body)[] Cases => new (string,Action)[] {
+        ("toggle PiP and Next share safe gameplay or panel scope without editing or modifiers",()=>{
+            Check(InputPolicy.MissileShortcutAllowed(false,false,false,true));
+            Check(InputPolicy.MissileShortcutAllowed(false,false,true,false));
+            Check(!InputPolicy.MissileShortcutAllowed(false,false,false,false));
+            Check(!InputPolicy.MissileShortcutAllowed(true,false,true,true));
+            Check(!InputPolicy.MissileShortcutAllowed(false,true,true,true));
+        }),
+
         ("global refresh accepts all candidate owners without selecting or opening", () => {
             var c=new ManualCatalog<object>(1); c.Refresh(new[]{Item(new(),1),Item(new(),2),Item(new(),3)});
             Check(c.Rows.Count==3 && c.Selected==null && !c.Visible);

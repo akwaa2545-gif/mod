@@ -211,7 +211,7 @@ var tests = new (string Name, Action Body)[] {
     ("picture defaults fixed dimensions and cadence", () => { Equal(480,MissilePicture.Width); Equal(270,MissilePicture.Height); Equal(0.05,MissilePicture.Interval); }),
 };
 int failures = 0;
-tests = tests.Concat(ManualTests.Cases).Concat(LaunchTests.Cases).Concat(MapGestureTests.Cases).Concat(ChaseViewTests.Cases).Concat(FullscreenTests.Cases).Concat(ScopedInputTests.Cases).Concat(FlightHoldTests.Cases).Concat(HoldControlTests.Cases).Concat(TerrainTests.Cases).ToArray();
+tests = tests.Concat(ManualTests.Cases).Concat(LaunchTests.Cases).Concat(MapGestureTests.Cases).Concat(ChaseViewTests.Cases).Concat(FullscreenTests.Cases).Concat(ScopedInputTests.Cases).Concat(PilotEligibilityTests.Cases).Concat(FlightHoldTests.Cases).Concat(HoldControlTests.Cases).Concat(TerrainTests.Cases).ToArray();
 foreach (var test in tests) { try { test.Body(); Console.WriteLine($"PASS {test.Name}"); } catch(Exception e) { ++failures; Console.WriteLine($"FAIL {test.Name}: {e.Message}"); } }
 Console.WriteLine($"{tests.Length - failures}/{tests.Length} passed; {failures} failed");
 return failures == 0 ? 0 : 1;

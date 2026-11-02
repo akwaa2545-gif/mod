@@ -14,6 +14,7 @@ namespace NuclearOptionObserver
             if (!allowed) return false;
             Active = true; ResetOrbit(); return true;
         }
+        internal bool CanRetainManualSelection(bool sameOwner, bool targetReady) => Active && sameOwner && targetReady;
         internal bool Orbit(float horizontalDegrees, float verticalDegrees)
         {
             if (!Active || float.IsNaN(horizontalDegrees) || float.IsInfinity(horizontalDegrees) || float.IsNaN(verticalDegrees) || float.IsInfinity(verticalDegrees)) return false;

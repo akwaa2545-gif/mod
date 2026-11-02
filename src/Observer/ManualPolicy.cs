@@ -125,6 +125,8 @@ namespace NuclearOptionObserver
     }
     public static class InputPolicy
     {
+        public static bool MissileShortcutAllowed(bool editing,bool modifiers,bool panel,bool safeGameplay)=>!editing&&!modifiers&&(panel||safeGameplay);
+
         public static bool PanelAllowed(bool ready, bool paused, bool menu, bool cursor, bool editing, bool weaponSafe = true) => ready && paused && menu && cursor && !editing && weaponSafe;
         public static bool GameplayShortcutAllowed(bool ready, bool menu, bool cursor, bool editing) => ready && !menu && !cursor && !editing;
     }

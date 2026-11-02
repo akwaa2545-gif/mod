@@ -91,18 +91,9 @@ namespace NuclearOptionObserver
             if (cameraUI != null && cameraUI.isOpen) return false;
             var aircraft = bridge.NativeAircraft; var cam = bridge.NativeCamera;
             if (cam == null || !(ReferenceEquals(cam.currentState, cam.cockpitState) || ReferenceEquals(cam.currentState, cam.orbitState)) || !ReferenceEquals(cam.followingUnit, aircraft)) return false;
-            reason = "Fullscreen needs the live local player pilot and attached cockpit.";
-            if (aircraft.HasEjected() || aircraft.cockpit == null || aircraft.cockpit.IsDetached() || aircraft.pilots == null) return false;
-            foreach (var candidate in aircraft.pilots)
-            {
-                if (candidate == null || candidate.dead || candidate.ejected || !candidate.playerControlled || !ReferenceEquals(candidate.aircraft, aircraft) || !ReferenceEquals(candidate.currentState, candidate.playerState)) continue;
-                if (local != null) return false;
-                local = candidate;
-            }
-            if (local == null || GameManager.playerInput == null || aircraft.GetInputs() == null) return false;
+            if (!LocalPilotContext.TryGet(aircraft, out local, out reason)) return false;
             foreach (var station in aircraft.weaponStations) if (station != null && station.SalvoInProgress) { reason = "Wait for the existing weapon salvo to finish before fullscreen."; return false; }
-            if (PlayerSettings.virtualJoystickEnabled && SceneSingleton<FlightHud>.i == null) return false;
-            if (aircraft.countermeasureTrigger && aircraft.countermeasureManager == null) return false;
+            if (aircraft.countermeasureTrigger && aircraft.countermeasureManager == null) { reason = "Countermeasure manager unavailable while its manual trigger is held."; return false; }
             if (captured && (requireTarget && !Phase1Policy.IsCurrent(targetToken, bridge.TargetToken) || !ReferenceEquals(local.playerState, pilotState) || !ReferenceEquals(pilot, local) || !ReferenceEquals(player, GameManager.playerInput) || !ReferenceEquals(controls, aircraft.GetInputs()) || !ReferenceEquals(cameraState, cam.currentState))) return false;
             reason = ""; return true;
         }
@@ -130,20 +121,29 @@ namespace NuclearOptionObserver
         }
         private void NeutralizeJoystick()
         {
-            if (bridge.IsReady && pilot != null && ReferenceEquals(pilot.aircraft, bridge.NativeAircraft) && !pilot.dead && !pilot.ejected && pilot.playerControlled && ReferenceEquals(pilot.currentState, pilotState) && ReferenceEquals(pilot.playerState, pilotState) && PlayerSettings.virtualJoystickEnabled && SceneSingleton<FlightHud>.i != null)
-                SceneSingleton<FlightHud>.i.SetVirtualJoystick(Vector3.zero);
+            if (bridge.IsReady && pilot != null && ReferenceEquals(pilot.aircraft, bridge.NativeAircraft) && !pilot.dead && !pilot.ejected && pilot.player != null && GameManager.IsLocalPlayer(pilot.player) && ReferenceEquals(pilot.currentState, pilotState) && ReferenceEquals(pilot.playerState, pilotState) && StoredSteering.SameInputObjects(controls, bridge.NativeAircraft.GetInputs(), player, GameManager.playerInput))
+            {
+                StoredSteering.Clear(ref pilotState.pitchInput, ref pilotState.rollInput, ref pilotState.yawInput);
+                if (PlayerSettings.virtualJoystickEnabled && SceneSingleton<FlightHud>.i != null) SceneSingleton<FlightHud>.i.SetVirtualJoystick(Vector3.zero);
+            }
         }
         private bool HeldExitInputs() => Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.GetMouseButton(2) || Input.GetKey((KeyCode)fullKey()) || Input.GetKey((KeyCode)resetKey()) || Input.GetKey((KeyCode)viewKey()) || player != null && ExitActions.AnyHeld(player.GetButton);
         private void Exit(bool userReturn)
         {
+            bool hadCapture = mode.Active || drain.Active;
             mode.Ensure(false);
             if (userReturn) drain.Begin(); else drain.Cancel();
             bridge.SetPresentation(false, 0, 0);
-            NeutralizeJoystick();
+            if (hadCapture) NeutralizeJoystick();
         }
-        private void Fail(Exception ex) { failure = ex; mode.Ensure(false); drain.Cancel(); try { bridge.SetPresentation(false, 0, 0); NeutralizeJoystick(); } catch { } }
+        private void Fail(Exception ex) { bool hadCapture = mode.Active || drain.Active; failure = ex; mode.Ensure(false); drain.Cancel(); try { bridge.SetPresentation(false, 0, 0); if (hadCapture) NeutralizeJoystick(); } catch { } }
         internal void CancelForManualOverride() { try { Exit(false); } catch (Exception ex) { Fail(ex); } }
         internal void ReturnForHoldSafety() { if (mode.Active) { try { Exit(true); } catch (Exception ex) { Fail(ex); } } }
+        internal void NextMissile()
+        {
+            bridge.Cycle(1); // Explicit user selection only; automatic registrations never adopt a fullscreen lifetime.
+            if (mode.CanRetainManualSelection(mode.Active && Context(true, out _, out _, false), bridge.TargetReady)) targetToken = bridge.TargetToken;
+        }
         internal void CancelContext() { requireRelease = true; if (mode.Active || drain.Active) { try { Exit(false); } catch (Exception ex) { Fail(ex); } } }
         internal void Sample()
         {

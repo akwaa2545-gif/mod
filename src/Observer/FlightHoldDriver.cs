@@ -83,21 +83,21 @@ namespace NuclearOptionObserver
             reason = "Local offline pilot/aircraft/focus unavailable.";
             if (disposed || !bridge.IsReady || !Application.isFocused) return false;
             var aircraft = bridge.NativeAircraft;
-            if (!aircraft.LocalSim || aircraft.HasEjected() || aircraft.cockpit == null || aircraft.cockpit.IsDetached() || aircraft.pilots == null) return false;
+            if (!aircraft.LocalSim) { reason = "Local aircraft simulation is not owned here."; return false; }
             if ((CursorManager.GetFlags() & (CursorFlags.NotInGame | CursorFlags.Loading | CursorFlags.EmptyScene | CursorFlags.SelectionMenu | CursorFlags.CameraControlUI)) != 0) return false;
             if (!GameManager.flightControlsEnabled && !GameplayUI.GameIsPaused) return false;
-            Pilot found = null;
-            foreach (var p in aircraft.pilots)
-                if (p != null && p.playerControlled && !p.dead && !p.ejected && ReferenceEquals(p.aircraft, aircraft) && ReferenceEquals(p.currentState, p.playerState)) { if (found != null) return false; found = p; }
-            if (found == null || GameManager.playerInput == null || aircraft.GetInputs() == null) return false;
-            if (PlayerSettings.virtualJoystickEnabled && SceneSingleton<FlightHud>.i == null) return false;
-            if (pilot != null && (!ReferenceEquals(pilot, found) || !ReferenceEquals(state, found.playerState) || !ReferenceEquals(inputs, aircraft.GetInputs()) || !ReferenceEquals(player, GameManager.playerInput))) return false;
+            if (!LocalPilotContext.TryGet(aircraft, out var found, out reason)) return false;
+            if (pilot != null && (!ReferenceEquals(pilot, found) || !ReferenceEquals(state, found.playerState) || !ReferenceEquals(inputs, aircraft.GetInputs()) || !ReferenceEquals(player, GameManager.playerInput))) { reason = "Captured local pilot/state/input ownership changed."; return false; }
             if (capture && pilot == null) { pilot = found; state = found.playerState; inputs = aircraft.GetInputs(); player = GameManager.playerInput; }
             reason = ""; return true;
         }
-        private bool SameHandoverOwner() => bridge.IsReady && pilot != null && !pilot.dead && !pilot.ejected && pilot.playerControlled && ReferenceEquals(pilot.aircraft, bridge.NativeAircraft) && ReferenceEquals(pilot.currentState, state) && ReferenceEquals(pilot.playerState, state) && ReferenceEquals(inputs, bridge.NativeAircraft.GetInputs()) && ReferenceEquals(player, GameManager.playerInput);
+        private bool SameHandoverOwner() => bridge.IsReady && pilot != null && !pilot.dead && !pilot.ejected && pilot.player != null && GameManager.IsLocalPlayer(pilot.player) && ReferenceEquals(pilot.aircraft, bridge.NativeAircraft) && ReferenceEquals(pilot.currentState, state) && ReferenceEquals(pilot.playerState, state) && ReferenceEquals(inputs, bridge.NativeAircraft.GetInputs()) && ReferenceEquals(player, GameManager.playerInput);
         private void ClearVirtualJoystick()
-        { if (SameHandoverOwner() && PlayerSettings.virtualJoystickEnabled && SceneSingleton<FlightHud>.i != null) SceneSingleton<FlightHud>.i.SetVirtualJoystick(Vector3.zero); }
+        {
+            if (!SameHandoverOwner()) return;
+            StoredSteering.Clear(ref state.pitchInput, ref state.rollInput, ref state.yawInput);
+            if (PlayerSettings.virtualJoystickEnabled && SceneSingleton<FlightHud>.i != null) SceneSingleton<FlightHud>.i.SetVirtualJoystick(Vector3.zero);
+        }
         private void Handover()
         {
             if (!ownedOutput) return; ownedOutput = false;

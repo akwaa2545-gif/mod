@@ -13,7 +13,7 @@ using UnityEngine.SceneManagement;
 
 namespace NuclearOptionObserver
 {
-    [BepInPlugin(Id, "Nuclear Option Observer (untested)", "0.5.0")]
+    [BepInPlugin(Id, "Nuclear Option Observer (untested)", "0.5.1")]
     [DefaultExecutionOrder(100)]
     public sealed class Plugin : BaseUnityPlugin
     {
@@ -63,8 +63,8 @@ namespace NuclearOptionObserver
             widthConfig = Config.Bind("Window", "Width", 480f, "Base PiP width, 16:9 aspect ratio, before UI scale.");
             scaleConfig = Config.Bind("Window", "Scale", 1f, "UI/PiP scale 0.75 to 1.5.");
             panelKey = Config.Bind("Keys", "Panel", (int)KeyCode.F8, "Distinct F1..F12 Unity KeyCode number; paused-only. Verify no native binding conflict.");
-            viewKey = Config.Bind("Keys", "View", (int)KeyCode.F9, "Distinct F1..F12; manual view visibility. Own-launch auto-show is a separate opt-in.");
-            cycleKey = Config.Bind("Keys", "Next", (int)KeyCode.F10, "Distinct F1..F12; next missile, paused panel only.");
+            viewKey = Config.Bind("Keys", "View", (int)KeyCode.F9, "Toggle PiP open/close during safe gameplay or the paused Observer menu. Own-launch auto-show is separate opt-in.");
+            cycleKey = Config.Bind("Keys", "Next", (int)KeyCode.F10, "Distinct F1..F12; manually select next missile during safe gameplay or the paused Observer menu. Does not open a hidden view.");
             fullscreenKey = Config.Bind("Keys", "Fullscreen", (int)KeyCode.F11, "Distinct function key: selected missile fullscreen/PiP. Requires normal cockpit/orbit and safe local input guards.");
             resetKey = Config.Bind("Keys", "ResetOrbit", (int)KeyCode.F7, "Distinct function key: reset missile orbit. Default F7 avoids Steam F12 screenshots.");
             earlySampler = gameObject.AddComponent<FullscreenEarlySampler>();
@@ -76,7 +76,7 @@ namespace NuclearOptionObserver
             lastConfigWrite = File.GetLastWriteTimeUtc(Config.ConfigFilePath);
             compatible = Compatibility.Check(out var reason);
             if (!compatible) Logger.LogError("Observer disabled: " + reason);
-            else Logger.LogInfo("Observer 0.5.0 EXPERIMENTAL candidate: " + reason + " Configured Enabled=" + enabledConfig.Value + ". Freecam/unit-control/retargeting absent.");
+            else Logger.LogInfo("Observer 0.5.1 EXPERIMENTAL candidate: " + reason + " Configured Enabled=" + enabledConfig.Value + ". Freecam/unit-control/retargeting absent.");
             SceneManager.sceneLoaded += SceneLoaded;
             SceneManager.sceneUnloaded += SceneUnloaded;
             SceneManager.activeSceneChanged += ActiveSceneChanged;
@@ -228,8 +228,9 @@ namespace NuclearOptionObserver
             if (captureKey != 0 || modifiers) return;
             bool safeFlight = InputPolicy.GameplayShortcutAllowed(bridge.IsReady && Application.isFocused, LeaderboardMenu.IsOpen(), Cursor.visible,
                 ModalSurface.HasNativeTextFocus() || UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.activeInHierarchy);
-            if (!Editing && (modal.IsOpen || safeFlight) && Input.GetKeyDown((KeyCode)viewKey.Value) && fullscreenInput?.HandledViewFrame != Time.frameCount) bridge.ToggleVisible();
-            if (!Editing && modal.IsOpen && Input.GetKeyDown((KeyCode)cycleKey.Value)) bridge.Cycle(1);
+            bool missileShortcuts = InputPolicy.MissileShortcutAllowed(Editing, modifiers, modal.IsOpen, safeFlight);
+            if (missileShortcuts && Input.GetKeyDown((KeyCode)viewKey.Value) && fullscreenInput?.HandledViewFrame != Time.frameCount) bridge.ToggleVisible();
+            if (missileShortcuts && Input.GetKeyDown((KeyCode)cycleKey.Value)) { if (fullscreenInput != null) fullscreenInput.NextMissile(); else bridge.Cycle(1); }
         }
         private void ClosePanel() { captureKey = 0; modal.Close(); }
         private ViewLayout CurrentViewLayout() => ViewLayout.Clamp(xConfig.Value, yConfig.Value, widthConfig.Value, scaleConfig.Value, Screen.width, Screen.height);
@@ -271,7 +272,7 @@ namespace NuclearOptionObserver
                     GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
                     float sw = Screen.width / scale, sh = Screen.height / scale;
                     panelRect = new Rect(Math.Max(0, (sw - Math.Min(680, sw)) / 2), Math.Max(0, (sh - Math.Min(650, sh)) / 2), Math.Min(680, sw), Math.Min(650, sh));
-                    GUI.Window(0x4f4253, panelRect, DrawPanel, "Nuclear Option Observer — Mod Menu 0.5.0 EXPERIMENTAL");
+                    GUI.Window(0x4f4253, panelRect, DrawPanel, "Nuclear Option Observer — Mod Menu 0.5.1 EXPERIMENTAL");
                 }
                 finally { GUI.matrix = matrix; }
             }
@@ -317,7 +318,7 @@ namespace NuclearOptionObserver
             float scale = GUI.HorizontalSlider(new Rect(100, y + 6, w - 112, 20), scaleConfig.Value, .75f, 1.5f);
             GUI.Label(new Rect(12, y, 85, 24), "Scale " + scale.ToString("0.00")); if (scale != scaleConfig.Value) scaleConfig.Value = scale;
             y += 27;
-            var keys = new[] { panelKey, viewKey, cycleKey, fullscreenKey, resetKey }; var names = new[] { "Settings", "View", "Next", "Fullscreen", "Reset orbit" };
+            var keys = new[] { panelKey, viewKey, cycleKey, fullscreenKey, resetKey }; var names = new[] { "Settings", "Toggle PiP", "Next missile", "Fullscreen", "Reset orbit" };
             for (int i = 0; i < 5; i++) if (GUI.Button(new Rect(12 + (i % 3) * w / 3, y + (i / 3) * 28, w / 3 - 4, 25), names[i] + ": " + (captureKey == i + 1 ? "press F-key" : ((KeyCode)keys[i].Value).ToString()))) { GUI.FocusControl(null); captureKey = i + 1; }
             if (captureKey != 0 && Event.current.type == EventType.KeyDown)
             {

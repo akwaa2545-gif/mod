@@ -1,11 +1,38 @@
 # Nuclear Option Observer — one mod menu
 
-**0.5.0 EXPERIMENTAL cloud candidate — NOT YET TESTED IN GAME.** The user confirmed 0.1.1
+**0.5.1 EXPERIMENTAL cloud candidate — NOT YET TESTED IN GAME.** The user confirmed 0.1.1
 works in-game and later reported that 0.3.0's missile view tilted on banked launches.
 This 0.3.1 pose correction still needs in-game retest; other menu/map/input behavior
 is not thereby broadly validated. Cloud work compiled
 against the supplied game 0.34.6 / Unity 2022.3 managed references without running
 any game/Unity/loader assembly. No PC files or game binaries were changed.
+
+## 0.5.1 pilot-input and shortcut correction
+
+The supplied0.5.0 runtime log confirmed F11 reached a pilot/cockpit guard while the
+user was piloting. Static inspection found our guard incorrectly used a legacy
+`Pilot.playerControlled` field with no direct reads/writes in the matched native game IL. It now
+uses the game's actual **local-player identity** predicate instead, keeping exact
+pilot/player-state, aircraft, offline, alive/cockpit and uniqueness checks. This
+correction applies consistently to fullscreen, hold and input handover. Remaining
+rejections report their specific predicate and bounded candidate-state details in
+`BepInEx/LogOutput.log`; no guard is blindly disabled. Runtime confirmation is pending.
+
+Ownership capture/return explicitly centers the native virtual joystick and clears
+its retained raw pilot-axis cache, which native map/radial input can otherwise replay.
+It does not overwrite filtered aircraft commands, change control gains or retain a
+previous steering offset on handback. Map/UI/free-look Pan/Tilt is not flight takeover;
+intentional raw flight inputs remain live. Check the hold HUD says **ACTIVE**—blocked
+hold cannot stabilize a plane. Direct Mouse flight bindings overlapping view/UI
+bindings remain ambiguous; the mod does not subtract or ignore joystick sources.
+
+**Toggle PiP (F9)** and **Next missile (F10)** are clearly labeled, configurable in
+Missile Camera and work during unobstructed gameplay or the paused Observer menu.
+Next is explicit/manual, wraps the existing live list, and never opens a hidden view.
+An explicit Next can retain fullscreen only with the same valid pilot and a live
+new target; automatic launches do not gain this manual handoff. Key capture, text
+entry, native menus and modifier chords suppress shortcuts. Existing saved key values
+are reused, not reset or duplicated.
 
 ## 0.3.1 camera correction
 
@@ -127,11 +154,11 @@ without changing the missile camera features.
    **F9**). List selection and visibility are separate; list buttons never auto-open.
 5. Close the Observer panel, then press **Esc** to resume. Tracking continues.
    **F9** toggles the display during unobstructed gameplay. Opening/closing the
-   native pause menu never forces the view on. **F10**, while the Observer panel is
-   open, manually selects the next missile. **Previous missile / Next missile**
+   native pause menu never forces the view on. **F10** during safe gameplay or while the Observer panel is
+   open manually selects the next missile. **Previous missile / Next missile**
    buttons wrap through the same stable all-live list; neither opens the view.
 
-**F8 panel / F9 view / F10 next** are distinct, rebindable **F1–F12** keys.
+**F8 settings / F9 Toggle PiP / F10 Next missile** are distinct, rebindable **F1–F12** keys.
 Click a key button while paused, then press an unused function key with no
 modifiers. Duplicates, mouse/flight/confirm keys and modifier chords are rejected.
 Key capture and native text entry suppress shortcuts. Esc remains the game's pause key;

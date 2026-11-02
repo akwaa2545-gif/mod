@@ -1,5 +1,5 @@
 # Example only: keep the existing runtime config when updating from 0.1.1.
-# 0.5.0 EXPERIMENTAL preserves existing PiP Enabled=true; FlightHold defaults OFF. Automatic own-launch viewing is a separate opt-in.
+# 0.5.1 EXPERIMENTAL preserves existing PiP Enabled=true; FlightHold defaults OFF. Automatic own-launch viewing is a separate opt-in.
 # Runtime config lives in BepInEx/config/io.github.nuclearoption.observer.cfg.
 [PiP]
 Enabled = false
@@ -17,7 +17,9 @@ Scale = 1
 # Defaults F8/F9/F10. Check native and other-mod bindings for conflicts.
 [Keys]
 Panel = 289
+# Toggle PiP open/close during safe gameplay or the paused Observer menu.
 View = 290
+# Manual Next missile during safe gameplay or the paused Observer menu.
 Next = 291
 Fullscreen = 292
 ResetOrbit = 288

@@ -165,3 +165,24 @@ Never treat these checks or the status display as a ground-safety guarantee.
 - Flight Hold status is visible while enabled, including blocked/latched reasons.
   Ctrl+left on that drawn HUD area cannot Watch a hidden map icon behind it; hidden
   HUD blocks nothing. Existing PiP geometry occlusion remains correct.
+
+## 0.5.1 targeted runtime retest (NOT RUN)
+
+- Back up/replace only Observer.dll, preserve config; start native offline with an
+  ordinary local cockpit/orbit and live selected missile. F11 should enter fullscreen
+  with the corrected native local-player predicate. If refused, capture the new precise
+  message/candidate-state details from LogOutput.log. Null/remote/AI/dead/ejected/
+  detached/ambiguous pilot contexts must still refuse, no safety weakening.
+- With a native virtual-mouse steering offset before opening map, enable eligible
+  hold: confirm ACTIVE and captured targets once, stored joystick/raw axes centered,
+  wings stabilize rather than replay old roll. Map/UI/free-look mouse motion alone
+  must not cancel; deliberate joystick/keyboard/flight input still cancels immediately.
+  Return manual (also map/radial exit before the next physics tick): no old steering
+  offset or cached axis replay. Repeated teardown after ownership ended must not clear
+  new native manual commands. No extra filter pass or post-filter output writes.
+- F9 Toggle PiP and F10 Next work in ordinary gameplay without opening settings;
+  Next is manual only, leaves a hidden view hidden and wraps the same live list.
+  In valid fullscreen, explicit Next keeps the presentation with the new live target;
+  death/context loss still returns safely. Other launch/discovery never adopts an old
+  fullscreen capture. Menu/text/key-edit/modifier suppression and saved distinct keys
+  remain. Verify renamed buttons use existing View/Next config entries.
