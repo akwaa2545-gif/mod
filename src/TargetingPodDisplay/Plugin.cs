@@ -6,12 +6,12 @@ using UnityEngine;
 using UnityEngine.Rendering;
 namespace NuclearOptionTargetingPod
 {
-    [BepInPlugin(Id,"Targeting Pod Display","0.1.2")]
+    [BepInPlugin(Id,"Targeting Pod Display","0.1.3")]
     [DefaultExecutionOrder(10000)]
     public sealed class Plugin : BaseUnityPlugin
     {
         public const string Id="local.nuclearoption.targetingpoddisplay";
-        private ConfigEntry<bool> enabledConfig,cockpitConfig,confirmedKeys,pipConfig;
+        private ConfigEntry<bool> enabledConfig,cockpitConfig,confirmedKeys,pipConfig,wheelConfig;
         private ConfigEntry<KeyCode> up,down,left,right,zoomIn,zoomOut,recenter,stabilize;
         private bool SensorKeyHeld(){foreach(var key in SensorKeys())if(Input.GetKey(key))return true;return false;}
         private KeyCode[] SensorKeys()=>new[]{up.Value,down.Value,left.Value,right.Value,zoomIn.Value,zoomOut.Value,recenter.Value,stabilize.Value};
@@ -21,7 +21,7 @@ namespace NuclearOptionTargetingPod
         {
             var sensorKeys=SensorKeys();var keys=new int[sensorKeys.Length+2];keys[0]=(int)fullKey.Value;keys[1]=(int)manualKey.Value;
             for(int i=0;i<sensorKeys.Length;i++)keys[i+2]=(int)sensorKeys[i];
-            return new InputConfiguration(keys,confirmedKeys.Value,enabledConfig.Value,cockpitConfig.Value);
+            return new InputConfiguration(keys,confirmedKeys.Value,enabledConfig.Value,cockpitConfig.Value,wheelConfig.Value);
         }
         private PodContext context;
         private Presentation presentation;
@@ -29,10 +29,13 @@ namespace NuclearOptionTargetingPod
         private OwnedSensor sensor;
         private RenderTexture source;
         private FullscreenCameraLease screenLease;
+        private FullscreenHudLease hudLease;
+        private WheelInputLease wheelLease;
+        private string wheelStatus="";
         private AftermathTracker aftermath;
         private ConfigEntry<float> aftermathSeconds;
         private bool aftermathUnavailable,pendingFullscreen;
-        private bool compatible,fullscreen,faulted,manual;
+        private bool compatible,fullscreen,fullscreenRequested,faulted,manual;
         private string status="Disabled";
         private string keyStatus="";
         private int renderedFrame=-1;
@@ -47,14 +50,16 @@ namespace NuclearOptionTargetingPod
             down=Config.Bind("SensorKeys","Down",KeyCode.DownArrow,"");left=Config.Bind("SensorKeys","Left",KeyCode.LeftArrow,"");right=Config.Bind("SensorKeys","Right",KeyCode.RightArrow,"");
             zoomIn=Config.Bind("SensorKeys","ZoomIn",KeyCode.PageUp,"");zoomOut=Config.Bind("SensorKeys","ZoomOut",KeyCode.PageDown,"");recenter=Config.Bind("SensorKeys","Recenter",KeyCode.Home,"");stabilize=Config.Bind("SensorKeys","InertialHold",KeyCode.End,"");
             compatible=Compatibility.Check(out var reason)&&Compatibility.CheckFullscreen(out reason);SetStatus(reason);
+            if(compatible)wheelLease=new WheelInputLease(()=>(fullscreen||fullscreenRequested)&&RenderEligible(),()=>RenderEligible()&&ObserverArbitration.Available(),OnWheelOwnershipLost);
             aftermathSeconds=Config.Bind("Presentation","AftermathSeconds",3f,new ConfigDescription("Live last-known-position view after a verified native kill report. Zero disables; never triggers from ordinary deselection.",new AcceptableValueRange<float>(0,10)));
+            wheelConfig=Config.Bind("Presentation","FullscreenWheelZoom",true,"Use isolated vertical mouse wheel to zoom only in fullscreen. Requires neutral verified native mouse mappings; unsupported digital-smoothed bindings refuse entry. False explicitly retains native scroll controls without pod wheel zoom.");
             pipConfig=Config.Bind("Presentation","PiPEnabled",false,"Passive right-center targeting view. Shares cockpit output; hidden during direct fullscreen.");
         }
         private void SetStatus(string value){if(status==value)return;status=value;Logger.LogInfo(value);}
         private void SetKeyStatus(string value){if(keyStatus==value)return;keyStatus=value;Logger.LogInfo(value);}
         private bool KeysReady()=>DedicatedKeys.Available(fullKey.Value,manualKey.Value,SensorKeys(),out _);
         private bool ContextCurrent(out PodContext live)=>PodContext.TryGet(out live,screenLease)&&context!=null&&context.Matches(live)&&PodContext.UiClear();
-        private bool RenderEligible()=>configuration.Matches(CurrentConfiguration())&&ContextCurrent(out _)&&(!(manual||fullscreen)||(ObserverArbitration.Available()&&KeysReady()));
+        private bool RenderEligible()=>configuration.Matches(CurrentConfiguration())&&ContextCurrent(out _)&&(!(manual||fullscreen||fullscreenRequested)||(ObserverArbitration.Available()&&KeysReady()));
         private void LateUpdate()
         {
             try
@@ -67,11 +72,11 @@ namespace NuclearOptionTargetingPod
                 bool arbitration=ObserverArbitration.Available();
                 bool keys=DedicatedKeys.Available(fullKey.Value,manualKey.Value,SensorKeys(),out var keyReason);
                 if(!keys)SetKeyStatus(keyReason);else keyStatus="";
-                if(!arbitration||!keys||manual&&!confirmedKeys.Value){if(manual||fullscreen){Release();return;}}
+                if(!arbitration||!keys||manual&&!confirmedKeys.Value){if(manual||fullscreen||fullscreenRequested){Release();return;}}
                 if(!NativeContract.IsTargetMode(context.TargetCam)||context.Aircraft.weaponManager==null){Release();return;}
                 if(rearmed&&arbitration&&keys&&confirmedKeys.Value&&manualKey.Value!=KeyCode.None&&Input.GetKeyDown(manualKey.Value)&&(!manual&&!SensorKeyHeld()||manual))
                 {
-                    if(sensor==null)sensor=new OwnedSensor(context,RenderEligible,Release);
+                    if(sensor==null)sensor=new OwnedSensor(context,RenderEligible,Release,SetStatus);
                     manual=!manual;sensor.Reset();aftermath?.Clear();pendingFullscreen=false;
                 }
                 var cam=context.Camera;var next=cam.targetTexture;
@@ -105,7 +110,7 @@ namespace NuclearOptionTargetingPod
                 source=next;
                 if(presentation!=null&&(presentation.Output.width!=(int)dimensions.Width||presentation.Output.height!=(int)dimensions.Height))
                 {binding?.Dispose();binding=null;presentation.Dispose();presentation=null;}
-                if(sensor==null)sensor=new OwnedSensor(context,RenderEligible,Release);
+                if(sensor==null)sensor=new OwnedSensor(context,RenderEligible,Release,SetStatus);
                 if(presentation==null)presentation=new Presentation((int)dimensions.Width,(int)dimensions.Height);
                 if(manual)
                 {
@@ -115,24 +120,36 @@ namespace NuclearOptionTargetingPod
                     if(Input.GetKeyDown(recenter.Value))sensor.Reset();
                     if(Input.GetKeyDown(stabilize.Value))sensor.Stabilize();
                 }
-                if(showingAftermath&&pendingFullscreen&&arbitration&&keys)
-                {screenLease=new FullscreenCameraLease(context,Release);fullscreen=true;pendingFullscreen=false;}
+                if(showingAftermath&&pendingFullscreen&&arbitration&&keys&&RequestFullscreen())pendingFullscreen=false;
                 if(!showingAftermath)pendingFullscreen=false;
                 if(rearmed&&arbitration&&keys&&fullKey.Value!=KeyCode.None&&Input.GetKeyDown(fullKey.Value))
                 {
-                    if(fullscreen)EndFullscreen();
-                    else {screenLease=new FullscreenCameraLease(context,Release);fullscreen=true;}
+                    if(fullscreen||fullscreenRequested)EndFullscreen();
+                    else RequestFullscreen();
                 }
                 if(Input.GetKeyDown(KeyCode.Escape)){Release();return;}
+                if(fullscreenRequested)
+                {
+                    if(!wheelConfig.Value||(wheelLease!=null&&wheelLease.Active&&!wheelLease.Draining))
+                    {screenLease=new FullscreenCameraLease(context,Release);fullscreen=true;fullscreenRequested=false;}
+                    else if(wheelLease==null||wheelLease.Fault.Length!=0)
+                    {string reason=wheelLease?.Fault??"Wheel input lease unavailable";EndFullscreen();SetStatus(reason);}
+                }
                 if(!configuration.Matches(CurrentConfiguration())||!ContextCurrent(out _)){Release();return;}
-                if((manual||fullscreen)&&(!ObserverArbitration.Available()||!KeysReady())){Release();return;}
-                sensor.Prepare(context,manual,showingAftermath?(GlobalPosition?)aftermathPoint:null,aftermathFov);sensor.SetDirect(fullscreen);
+                if((manual||fullscreen||fullscreenRequested)&&(!ObserverArbitration.Available()||!KeysReady())){Release();return;}
+                if(hudLease!=null&&(!fullscreen||!hudLease.IsCurrent(context))){Release();SetStatus("Fullscreen released: native HUD ownership changed.");return;}
+                if(fullscreen&&hudLease==null){hudLease=FullscreenHudLease.TryAcquire(context,out var hudReason);SetStatus(hudReason);}
+                sensor.SetDirect(fullscreen);
+                if(fullscreen&&wheelLease!=null&&wheelLease.TryConsume(out float wheelDelta))sensor.ApplyWheel(wheelDelta,manual);
+                if(wheelLease!=null&&wheelLease.Fault.Length!=0&&wheelLease.Fault!=wheelStatus){wheelStatus=wheelLease.Fault;Logger.LogWarning(wheelStatus);}
+                if(!ContextCurrent(out _)||sensor==null)return;
+                sensor.Prepare(context,manual,showingAftermath?(GlobalPosition?)aftermathPoint:null,aftermathFov);
                 presentation.SetManual(manual,sensor.Stabilized,sensor.Fov);presentation.UpdateTruth(context,showingAftermath);
                 if(binding!=null&&(!cockpitConfig.Value||!binding.IsCurrent(context))){binding.Dispose();binding=null;}
                 if(!fullscreen)
                 {
                     sensor.Render((int)dimensions.Width,(int)dimensions.Height);
-                    if(!configuration.Matches(CurrentConfiguration())||!ContextCurrent(out _)||((manual||fullscreen)&&!ObserverArbitration.Available())){Release();return;}
+                    if(!configuration.Matches(CurrentConfiguration())||!ContextCurrent(out _)||((manual||fullscreen||fullscreenRequested)&&!ObserverArbitration.Available())){Release();return;}
                     presentation.Compose(sensor.Texture);renderedFrame=Time.frameCount;
                     if(cockpitConfig.Value&&binding==null)
                     {
@@ -149,15 +166,32 @@ namespace NuclearOptionTargetingPod
             }
             catch(Exception ex){faulted=true;Release();SetStatus("Fail closed until restart: "+ex.GetType().Name+": "+ex.Message);}
         }
+        private bool RequestFullscreen()
+        {
+            if(wheelConfig.Value&&(wheelLease==null||wheelLease.Draining))
+            {SetStatus("Fullscreen waiting: release the mouse wheel before reentry.");return false;}
+            fullscreenRequested=true;
+            if(wheelConfig.Value){wheelLease.Request(true);SetStatus("Fullscreen waiting for a neutral verified wheel-input boundary.");}
+            else SetStatus("Fullscreen wheel zoom disabled: native scroll bindings remain live.");
+            return true;
+        }
+        private void OnWheelOwnershipLost()
+        {
+            if(!wheelConfig.Value||(!fullscreen&&!fullscreenRequested))return;
+            string reason=wheelLease?.Fault??"Wheel input ownership changed";
+            Release();SetStatus("Fullscreen released: "+reason);
+        }
         private void EndFullscreen()
         {
+            wheelLease?.Request(false);
+            hudLease?.Dispose();hudLease=null;
             if(sensor!=null)sensor.SetDirect(false);
-            fullscreen=false;var lease=screenLease;screenLease=null;lease?.Dispose();
+            fullscreen=false;fullscreenRequested=false;var lease=screenLease;screenLease=null;lease?.Dispose();
         }
         private void OnGUI()
         {
             if(presentation==null||Event.current.type!=EventType.Repaint||renderedFrame!=Time.frameCount)return;
-            if(!configuration.Matches(CurrentConfiguration())||!ContextCurrent(out _)||((manual||fullscreen)&&(!ObserverArbitration.Available()||!KeysReady()))){Release();return;}
+            if(!configuration.Matches(CurrentConfiguration())||!ContextCurrent(out _)||((manual||fullscreen||fullscreenRequested)&&(!ObserverArbitration.Available()||!KeysReady()))){Release();return;}
             var previousColor=GUI.color;GUI.color=Color.white;
             try
             {
@@ -176,15 +210,16 @@ namespace NuclearOptionTargetingPod
         private void OnApplicationFocus(bool focused){if(!focused)Release();}
         private void HidePresentation(bool blockInput)
         {
-            if(blockInput&&(manual||fullscreen))configuration.Block();
+            if(blockInput&&(manual||fullscreen||fullscreenRequested))configuration.Block();
             EndFullscreen();manual=false;binding?.Dispose();binding=null;presentation?.Dispose();presentation=null;sensor?.Dispose();sensor=null;source=null;renderedFrame=-1;
         }
         private void Release()
         {
-            if(manual||fullscreen)configuration.Block();
+            wheelLease?.Clear();
+            if(manual||fullscreen||fullscreenRequested)configuration.Block();
             HidePresentation(false);aftermath?.Dispose();aftermath=null;aftermathUnavailable=false;pendingFullscreen=false;context=null;
         }
         private void OnDisable()=>Release();
-        private void OnDestroy()=>Release();
+        private void OnDestroy(){Release();wheelLease?.Dispose();wheelLease=null;}
     }
 }

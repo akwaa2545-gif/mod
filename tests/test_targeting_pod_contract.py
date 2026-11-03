@@ -102,7 +102,7 @@ class TargetingContract(unittest.TestCase):
         self.assertNotIn('SetValue',s)
     def test_native_hint_is_visible_fresh_same_station(self):
         s=read('NativeHint.cs')
-        for token in ('ReferenceEquals(station,previousStation)','previousTargets','stamp<=changedAt','stamp>.25f','!hint.isActiveAndEnabled','"weaponStation"','"WPN HINT: "'):
+        for token in ('ReferenceEquals(station,previousStation)','previousTargets','stamp<=changedAt','stamp>.25f','!hint.gameObject.activeInHierarchy','"weaponStation"','"WPN HINT: "'):
             self.assertIn(token,s)
     def test_no_fake_thermal_or_seeker(self):
         s=read('Presentation.cs')
@@ -120,7 +120,7 @@ class TargetingContract(unittest.TestCase):
         self.assertIn('configuration.Poll(CurrentConfiguration()',s)
         self.assertIn('if(changed){Release();return;}',s)
         self.assertIn('configuration.Matches(CurrentConfiguration())',s)
-        self.assertIn('if(manual||fullscreen)configuration.Block()',s)
+        self.assertIn('if(manual||fullscreen||fullscreenRequested)configuration.Block()',s)
         self.assertIn('Input.GetKey((KeyCode)key)',s)
     def test_continuous_bounded_consumer_reproof(self):
         s=read('NativeContract.cs')

@@ -27,12 +27,12 @@ namespace NuclearOptionTargetingPod
             var field=typeof(HUDMissileState).GetField("hint",BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.DeclaredOnly);
             if(field==null||field.FieldType.FullName!="TMPro.TextMeshProUGUI")return "WPN HINT N/A";
             var hint=field.GetValue(missile) as Behaviour;
-            if(hint==null||!hint.isActiveAndEnabled)return "WPN HINT N/A";
+            if(hint==null||!hint.gameObject.activeInHierarchy)return "WPN HINT N/A";
             var property=hint.GetType().GetProperty("text",BindingFlags.Instance|BindingFlags.Public);
             if(property==null||property.PropertyType!=typeof(string))return "WPN HINT N/A";
             var text=(string)property.GetValue(hint);
             // Preserve only the inspected native envelope strings, never convert them to a lock claim.
-            switch(text){case "SHOOT":case "OUT OF RANGE":case "TOO CLOSE":case "OUT OF ARC":case "TOO SLOW":return "WPN HINT: "+text;default:return "WPN HINT N/A";}
+            return NativeHintPolicy.Allowed(text,hint.enabled)?"WPN HINT: "+text:"WPN HINT N/A";
         }
     }
 }

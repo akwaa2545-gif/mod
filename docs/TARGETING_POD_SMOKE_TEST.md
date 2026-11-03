@@ -1,7 +1,12 @@
-# 0.1.2 runtime acceptance checklist — not yet run
+# 0.1.3 runtime acceptance checklist — not yet run
 
 Use a backed-up offline mission. Test this DLL alone, then Observer 0.5.1, then the existing mod set. Capture logs and screenshots. Compilation and pure tests do not replace these checks.
 
+- [ ] Revisit the reported helipad in COLOR and IR. Confirm no localized magenta surfaces; compare to vanilla. Capture the new Sensor render parity log if any remain. Compilation does not prove this fixed.
+- [ ] Fullscreen hides native flight/radar/top-right panels while fresh own weapon advice remains. Fresh OUT OF ARC/RANGE transitions remain truthful; no stale or intentionally hidden SHOOT is invented. External Canvas ownership change exits without reacquiring. Menus/chat/expanded map stay usable.
+- [ ] With FullscreenWheelZoom=true, entry waits for a neutral verified boundary; the first next notch zooms exactly once without native camera/weapon/flight response. Test split wheel-as-button mappings, XY/buttons and alternate keyboard/joystick bindings, exit while scrolling, fast reentry, remaps and focus/map loss.
+- [ ] Unsupported digital-smoothed wheel bindings refuse entry precisely. Explicit FullscreenWheelZoom=false permits prior fullscreen without pod scroll consumption; native wheel bindings stay live. Config changes invalidate the session.
+- [ ] Check third-party raw-wheel readers separately. Native Rewired isolation does not prove unknown-mod raw-input isolation.
 - [ ] Disabled defaults leave camera/input/weapons unchanged. Existing config survives DLL-only update and receives new PiP/aftermath keys.
 - [ ] Native camera initialized by ordinary selection; unique cockpit target RawImage found through registered intact parts even after normal physics unparenting. Missing/ambiguous/damaged displays stay native.
 - [ ] Separate landing image sharing native texture stays unchanged. Target/landing overlap, registry removal, detachment and another mod's replacement release only owned values.

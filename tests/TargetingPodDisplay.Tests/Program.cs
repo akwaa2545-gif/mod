@@ -160,6 +160,21 @@ Check(DisplayPolicy.OutputSize(128,256).Width==512&&DisplayPolicy.OutputSize(128
 Check(DisplayPolicy.OutputSize(256,256).Width==1024,"small square feed gets readable raster");
 Check(DisplayPolicy.OutputSize(4096,64).Width==0,"extreme unsupported aspect fails closed instead of distorting");
 Console.WriteLine($"{count} total targeting display assertions including native aspect preservation.");
+Check(Math.Abs(WheelZoom.Adjust(10,1)-8.5f)<.001,"wheel forward narrows own field of view");
+Check(WheelZoom.Adjust(10,-1)>10,"wheel backward widens own field of view");
+Check(WheelZoom.Adjust(.1f,4)==.1f,"wheel min FOV bounded");
+Check(WheelZoom.Adjust(60,-4)==60,"wheel max FOV bounded");
+Check(WheelZoom.Adjust(10,float.NaN)==10,"nonfinite wheel ignored");
+Check(WheelZoom.Adjust(10,100)==WheelZoom.Adjust(10,4),"wheel burst bounded");
+Console.WriteLine($"{count} total targeting display assertions including wheel zoom.");
+Check(NativeHintPolicy.Allowed("OUT OF ARC",false),"fresh native arc warning survives disabled graphic");
+Check(NativeHintPolicy.Allowed("TOO SLOW",false),"fresh native speed warning survives disabled graphic");
+Check(!NativeHintPolicy.Allowed("SHOOT",false),"intentionally hidden SHOOT is not manufactured");
+Check(NativeHintPolicy.Allowed("SHOOT",true),"native visible SHOOT retained");
+Check(!NativeHintPolicy.Allowed("FIRE",true),"unknown invented fire text rejected");
+Console.WriteLine($"{count} total targeting display assertions including native hint visibility.");
+Check(!new InputConfiguration(new[]{1},true,true,true,true).Equals(new InputConfiguration(new[]{1},true,true,true,false)),"wheel isolation config invalidates active input generation");
+Console.WriteLine($"{count} total targeting display assertions including wheel configuration generation.");
 sealed class RenderFlag { public bool Enabled;public RenderFlag(bool value){Enabled=value;} }
 sealed class RegisteredPart { public object Owner; public bool Detached; public RegisteredPart(object owner){Owner=owner;} }
 sealed class RegisteredPresenter { public object Owner;public RegisteredPart? Part;public bool Initialized=true,InMainRoot=true;public RegisteredPresenter(object owner,RegisteredPart? part){Owner=owner;Part=part;} }

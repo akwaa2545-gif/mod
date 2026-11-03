@@ -15,7 +15,13 @@ static class Program {
    var missile=OverlayRaster.Render(w,h,new OverlayData{Page="MISSILE",Missile=true,TargetSelected=true});Check(Pixel(missile,w,w/2+(int)Math.Round(s*.20),h/2,128,240,162),"selected AGM green longer arms");
    var unselected=OverlayRaster.Render(w,h,new OverlayData{Missile=true});Check(Pixel(unselected,w,w/2+(int)Math.Round(s*.04),h/2,235,244,235),"unselected AGM ordinary white reticle");Check(Pixel(unselected,w,w/2+(int)Math.Round(s*.20),h/2,0,0,0,0),"unselected AGM has no long arms");
    var otherSelected=OverlayRaster.Render(w,h,new OverlayData{TargetSelected=true});Check(Pixel(otherSelected,w,w/2+(int)Math.Round(s*.20),h/2,0,0,0,0),"non-AGM selection has no long arms");
-   for(int tick=0;tick<3;tick++){int yy=h/2+(int)Math.Round(s*(.14+.05*tick));int half=(int)Math.Round(s*(.018+.012*tick));Check(Pixel(missile,w,w/2+half-1,yy,128,240,162),"three lower ticks grow downward");Check(Pixel(missile,w,w/2+half+2,yy,0,0,0,0),"tick width bounded");}
+   for(int tick=0;tick<3;tick++){int yy=h/2+(int)Math.Round(s*(.14+.05*tick));int half=(int)Math.Round(s*(.024+.016*tick));Check(Pixel(missile,w,w/2+half-1,yy,128,240,162),"three lower ticks grow downward");Check(Pixel(missile,w,w/2+half+2,yy,0,0,0,0),"tick width bounded");}
+   int stroke=Math.Max(2,(int)Math.Round(s*.004));
+   int whiteRows=0,greenRows=0;for(int yy=h/2-10;yy<=h/2+10;yy++){if(Pixel(b,w,w/2+(int)Math.Round(s*.04),yy,235,244,235))whiteRows++;if(Pixel(missile,w,w/2+(int)Math.Round(s*.20),yy,128,240,162))greenRows++;}
+   Check(whiteRows==stroke && greenRows==stroke,"TGP and AGM have bold pixel stroke");
+   for(int tick=0;tick<3;tick++){int yy=h/2+(int)Math.Round(s*(.14+.05*tick));int rows=0;for(int py=yy-10;py<=yy+10;py++)if(Pixel(missile,w,w/2+(int)Math.Round(s*.012),py,128,240,162))rows++;Check(rows==stroke,"each AGM tick has bold stroke");}
+   Check(Pixel(b,w,w/2+(int)Math.Round(s*.075),h/2,235,244,235),"TGP arms extended");
+   Check(Pixel(missile,w,w/2+(int)Math.Round(s*.31),h/2,128,240,162),"AGM arms extended");
    Check(Pixel(missile,w,w/2,h/2,0,0,0,0),"selected AGM center remains split");
    Check(Pixel(b,w,w/2+(int)Math.Round(s*.20),h/2,0,0,0,0),"TGP not missile reticle");
    if(w==1024||w==384||w==1536)Save(b,w,h,$"overlay-{w}x{h}.ppm");

@@ -27,17 +27,20 @@ namespace NuclearOptionTargetingPod
             // Missile means caller-confirmed AGM role. TargetSelected is native selection,
             // deliberately not a claim of prelaunch seeker lock.
             bool selectedAgm=data.Missile && data.TargetSelected;
-            int cx=width/2,cy=height/2,gap=(int)Math.Round(s*(selectedAgm?.020:.018)), arm=(int)Math.Round(s*(selectedAgm?.29:.060));
+            // Reticle-only stroke survives cockpit downsampling; frame/text/attitude unchanged.
+            int reticleStroke=Math.Max(2,(int)Math.Round(s*.004));
+            int reticleOffset=reticleStroke/2;
+            int cx=width/2,cy=height/2,gap=(int)Math.Round(s*(selectedAgm?.020:.018)), arm=(int)Math.Round(s*(selectedAgm?.320:.080));
             byte rr=selectedAgm?(byte)128:(byte)235, gg=selectedAgm?(byte)240:(byte)244, bb=selectedAgm?(byte)162:(byte)235;
-            c.Rect(cx-arm,cy,arm-gap,thickness,rr,gg,bb,255); c.Rect(cx+gap,cy,arm-gap,thickness,rr,gg,bb,255);
-            c.Rect(cx,cy-arm,thickness,arm-gap,rr,gg,bb,255); c.Rect(cx,cy+gap,thickness,arm-gap,rr,gg,bb,255);
+            c.Rect(cx-arm,cy-reticleOffset,arm-gap,reticleStroke,rr,gg,bb,255); c.Rect(cx+gap,cy-reticleOffset,arm-gap,reticleStroke,rr,gg,bb,255);
+            c.Rect(cx-reticleOffset,cy-arm,reticleStroke,arm-gap,rr,gg,bb,255); c.Rect(cx-reticleOffset,cy+gap,reticleStroke,arm-gap,rr,gg,bb,255);
             if(selectedAgm)
             {
                 for(int tick=0;tick<3;tick++)
                 {
                     int yy=cy+(int)Math.Round(s*(.14+.05*tick));
-                    int half=(int)Math.Round(s*(.018+.012*tick));
-                    c.Rect(cx-half,yy,2*half,thickness,128,240,162,255);
+                    int half=(int)Math.Round(s*(.024+.016*tick));
+                    c.Rect(cx-half,yy-reticleOffset,2*half,reticleStroke,128,240,162,255);
                 }
             }
             if(data.Tracking && !data.Missile)
@@ -46,8 +49,8 @@ namespace NuclearOptionTargetingPod
                 foreach(int dx in new[]{-1,1}) foreach(int dy in new[]{-1,1})
                 {
                     int x=cx+dx*radius,y=cy+dy*radius;
-                    c.Rect(dx<0?x:x-leg,y,leg,thickness,235,244,235,255);
-                    c.Rect(x,dy<0?y:y-leg,thickness,leg,235,244,235,255);
+                    c.Rect(dx<0?x:x-leg,y,leg,reticleStroke,235,244,235,255);
+                    c.Rect(x,dy<0?y:y-leg,reticleStroke,leg,235,244,235,255);
                 }
             }
             int rows=Math.Max(1,(int)Math.Floor((height*.15-inset-3)/pitch));

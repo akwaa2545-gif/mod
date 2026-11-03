@@ -5,12 +5,12 @@ namespace NuclearOptionTargetingPod
     public sealed class InputConfiguration : IEquatable<InputConfiguration>
     {
         private readonly int[] keys;
-        private readonly bool confirmed,enabled,cockpit;
-        public InputConfiguration(int[] keys,bool confirmed,bool enabled,bool cockpit){this.keys=(int[])keys.Clone();this.confirmed=confirmed;this.enabled=enabled;this.cockpit=cockpit;}
+        private readonly bool confirmed,enabled,cockpit,wheel;
+        public InputConfiguration(int[] keys,bool confirmed,bool enabled,bool cockpit,bool wheel=true){this.keys=(int[])keys.Clone();this.confirmed=confirmed;this.enabled=enabled;this.cockpit=cockpit;this.wheel=wheel;}
         internal void AddKeys(HashSet<int> destination){foreach(int key in keys)if(key!=0)destination.Add(key);}
         public bool Equals(InputConfiguration? other)
         {
-            if(other==null||confirmed!=other.confirmed||enabled!=other.enabled||cockpit!=other.cockpit||keys.Length!=other.keys.Length)return false;
+            if(other==null||confirmed!=other.confirmed||enabled!=other.enabled||cockpit!=other.cockpit||wheel!=other.wheel||keys.Length!=other.keys.Length)return false;
             for(int i=0;i<keys.Length;i++)if(keys[i]!=other.keys[i])return false;return true;
         }
     }

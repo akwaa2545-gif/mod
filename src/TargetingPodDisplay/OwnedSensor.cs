@@ -15,14 +15,19 @@ namespace NuclearOptionTargetingPod
         internal readonly SensorPolicy View=new SensorPolicy();
         private readonly UniversalRenderPipeline.SingleCameraRequest request=new UniversalRenderPipeline.SingleCameraRequest();
         private Vector3? inertialDirection;
+        private float? wheelFov;
         private bool ir,fogHeld,previousFog,direct;
         private readonly Func<bool> eligible;
         private readonly Action lost;
+        private readonly Action<string> diagnose;
+        private string renderDescription;
+        private RenderTextureFormat outputFormat=RenderTextureFormat.ARGB32;
+        private int outputSamples=1;
         internal bool Stabilized=>inertialDirection.HasValue;
         internal float Fov=>camera.fieldOfView;
-        internal OwnedSensor(PodContext context,Func<bool> eligible,Action lost)
+        internal OwnedSensor(PodContext context,Func<bool> eligible,Action lost,Action<string> diagnose)
         {
-            this.eligible=eligible;this.lost=lost;
+            this.eligible=eligible;this.lost=lost;this.diagnose=diagnose;
             try
             {
                 root=new GameObject("TargetingPodDisplay.Sensor");camera=root.AddComponent<Camera>();camera.enabled=false;
@@ -37,7 +42,13 @@ namespace NuclearOptionTargetingPod
                 RenderPipelineManager.endFrameRendering+=EndFrame;
             } catch {Dispose();throw;}
         }
-        internal void Reset(){View.Reset();inertialDirection=null;}
+        internal void Reset(){View.Reset();inertialDirection=null;wheelFov=null;}
+        internal void ApplyWheel(float delta,bool manual)
+        {
+            if(!direct||camera==null||delta==0)return;
+            if(manual)View.Zoom(WheelZoom.Adjust(View.Fov,delta)-View.Fov);
+            else wheelFov=WheelZoom.Adjust(wheelFov??camera.fieldOfView,delta);
+        }
         internal void Stabilize(){inertialDirection=inertialDirection.HasValue?(Vector3?)null:camera.transform.forward;}
         internal void Slew(float yaw,float pitch)
         {
@@ -61,11 +72,15 @@ namespace NuclearOptionTargetingPod
                 camera.transform.SetPositionAndRotation(native.transform.position,native.transform.rotation);
                 camera.fieldOfView=native.fieldOfView;
             }
+            if(direct&&!manual&&wheelFov.HasValue)camera.fieldOfView=wheelFov.Value;
             var position=camera.transform.position;
             if(!SensorPolicy.Finite(position.x)||!SensorPolicy.Finite(position.y)||!SensorPolicy.Finite(position.z)||!SensorPolicy.Finite(camera.fieldOfView)||camera.fieldOfView<.1f||camera.fieldOfView>179)throw new InvalidOperationException("Invalid sensor pose");
             // Own volume stack: copy only read-only settings, never native cameras, UI stacks or profiles.
             var nativeData=native.GetComponent<UniversalAdditionalCameraData>();
             if(nativeData==null)throw new InvalidOperationException("Native sensor volume settings unavailable");
+            string description=SensorRenderContract.Apply(native,camera,nativeData,data,PhysicsLayers.UIMask|PhysicsLayers.HUDMask|PhysicsLayers.CockpitMask|PhysicsLayers.PreviewRenderMask|PhysicsLayers.EditorSelectOnlyMask);
+            if(description!=renderDescription){renderDescription=description;diagnose(description);}
+            if(native.targetTexture!=null){outputFormat=native.targetTexture.format;outputSamples=native.targetTexture.antiAliasing;}
             data.volumeLayerMask=nativeData.volumeLayerMask;
             data.volumeTrigger=nativeData.volumeTrigger!=null?nativeData.volumeTrigger:native.transform;
             data.renderPostProcessing=!manual&&nativeData.renderPostProcessing;
@@ -82,16 +97,16 @@ namespace NuclearOptionTargetingPod
         internal void SetDirect(bool enabled)
         {
             direct=enabled;
-            if(!enabled){camera.enabled=false;RestoreFog();return;}
+            if(!enabled){wheelFov=null;camera.enabled=false;RestoreFog();return;}
             camera.targetTexture=null;camera.rect=new Rect(0,0,1,1);
             camera.aspect=(float)Screen.width/Mathf.Max(1,Screen.height);camera.enabled=true;
         }
         internal void Render(int width,int height)
         {
             if(direct)throw new InvalidOperationException("Offscreen pass forbidden during direct-screen rendering");
-            if(Texture==null||Texture.width!=width||Texture.height!=height)
+            if(Texture==null||Texture.width!=width||Texture.height!=height||Texture.format!=outputFormat||Texture.antiAliasing!=outputSamples)
             {
-                ReleaseTexture();Texture=new RenderTexture(width,height,16,RenderTextureFormat.ARGB32){name="TargetingPodDisplay.SensorOutput",useMipMap=false,autoGenerateMips=false};
+                ReleaseTexture();Texture=new RenderTexture(width,height,24,outputFormat){name="TargetingPodDisplay.SensorOutput",antiAliasing=outputSamples,useMipMap=false,autoGenerateMips=false};
                 if(!Texture.Create())throw new InvalidOperationException("Sensor output allocation failed");
                 request.destination=Texture;
             }
