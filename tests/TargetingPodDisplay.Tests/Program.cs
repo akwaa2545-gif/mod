@@ -78,3 +78,18 @@ Check(!DisplayPolicy.CanBindHierarchy(true,true,false,true,false,false,0),"landi
 Check(!DisplayPolicy.CanBindHierarchy(true,true,true,false,false,false,0),"aliased landing invalidates");
 Check(!DisplayPolicy.CanBindHierarchy(true,true,true,true,false,false,1),"added renderer invalidates");
 Console.WriteLine($"{count} total targeting display assertions passed.");
+var localAircraft=new object();var remoteAircraft=new object();
+var cockpitPresenter=new FakeCockpitPresenter(localAircraft,true);var damagePart=new FakeDamagePart();
+Check(CockpitOwnerPolicy.Unique(new object[]{damagePart,cockpitPresenter},localAircraft,c=>c is FakeCockpitPresenter p?p.Owner:null,c=>c is FakeCockpitPresenter p&&p.Initialized)==cockpitPresenter,"damage marker is not presentation component");
+Check(CockpitOwnerPolicy.Unique(new object[]{damagePart},localAircraft,c=>c is FakeCockpitPresenter p?p.Owner:null,c=>c is FakeCockpitPresenter p&&p.Initialized)==null,"missing presenter preserves standalone feed");
+Check(CockpitOwnerPolicy.Unique(new[]{new FakeCockpitPresenter(remoteAircraft,true)},localAircraft,c=>c.Owner,c=>c.Initialized)==null,"remote owned presenter rejected");
+Check(CockpitOwnerPolicy.Unique(new[]{new FakeCockpitPresenter(localAircraft,false)},localAircraft,c=>c.Owner,c=>c.Initialized)==null,"uninitialized presenter rejected");
+Check(CockpitOwnerPolicy.Unique(new[]{cockpitPresenter,new FakeCockpitPresenter(localAircraft,true)},localAircraft,c=>c.Owner,c=>c.Initialized)==null,"ambiguous local presenters rejected");
+Check(CockpitOwnerPolicy.Unique(new[]{cockpitPresenter},localAircraft,c=>c.Owner,c=>c.Initialized,0)==null,"bounded search refuses overflow");
+Console.WriteLine($"{count} total targeting display assertions passed after cockpit owner regression.");
+sealed class FakeDamagePart { }
+sealed class FakeCockpitPresenter
+{
+    public object Owner {get;} public bool Initialized {get;}
+    public FakeCockpitPresenter(object owner,bool initialized){Owner=owner;Initialized=initialized;}
+}

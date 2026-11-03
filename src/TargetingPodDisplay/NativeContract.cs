@@ -14,11 +14,25 @@ namespace NuclearOptionTargetingPod
             if(info==null||info.IsStatic||info.FieldType!=typeof(T))throw new MissingFieldException(owner.GetType().Name,field);
             return (T)info.GetValue(owner);
         }
+        internal static Cockpit ResolveCockpit(PodContext context,out string reason)
+        {
+            reason="Cockpit presentation unavailable: no unique initialized Cockpit component owned by the local aircraft. Fullscreen remains independent.";
+            // Aircraft.cockpit is an AeroPart damage marker, not this MonoBehaviour.
+            // Search only the local aircraft hierarchy; never a global scene/name search.
+            var candidates=context.Aircraft.GetComponentsInChildren<Cockpit>(true);
+            var cockpit=CockpitOwnerPolicy.Unique(candidates,context.Aircraft,
+                candidate=>Read<Aircraft>(candidate,"aircraft"),
+                candidate=>candidate!=null&&candidate.GetType()==typeof(Cockpit)&&candidate.isActiveAndEnabled&&
+                    candidate.transform.IsChildOf(context.Aircraft.transform)&&Read<TacScreen>(candidate,"tacScreen")!=null);
+            if(cockpit!=null)reason="Local cockpit presentation owner verified.";
+            return cockpit;
+        }
         internal static bool IsTargetMode(TargetCam cam) => Read<TargetCam.CamMode>(cam,"currentMode")!=TargetCam.CamMode.landingMode;
         internal static RawImage FindConsumer(PodContext context,RenderTexture source,out string reason,RawImage ownedImage=null,Texture ownedTexture=null)
         {
-            reason="No proven unique target RawImage; native cockpit retained.";
-            var cockpit=context.Aircraft.cockpit;
+            var cockpit=ResolveCockpit(context,out reason);
+            if(cockpit==null)return null;
+            reason="No proven unique target RawImage; native cockpit retained. Fullscreen remains independent.";
             var tac=Read<TacScreen>(cockpit,"tacScreen");
             if(tac==null)return null;
             var target=Read<GameObject>(tac,"targetCamDisplay"); var landing=Read<GameObject>(tac,"landingCamDisplay");
@@ -42,6 +56,7 @@ namespace NuclearOptionTargetingPod
     internal sealed class CockpitBinding : IDisposable
     {
         private readonly RawImage image;
+        private readonly Cockpit cockpit;
         private readonly TacScreen tac;
         private readonly GameObject targetRoot,landingRoot;
         private readonly Texture original,owned;
@@ -52,11 +67,13 @@ namespace NuclearOptionTargetingPod
         internal CockpitBinding(PodContext context,RawImage image,Texture owned)
         {
             this.image=image;original=image.texture;this.owned=owned;
-            tac=NativeContract.Read<TacScreen>(context.Aircraft.cockpit,"tacScreen");targetRoot=NativeContract.Read<GameObject>(tac,"targetCamDisplay");landingRoot=NativeContract.Read<GameObject>(tac,"landingCamDisplay");
+            cockpit=NativeContract.ResolveCockpit(context,out var reason);
+            if(cockpit==null)throw new InvalidOperationException(reason);
+            tac=NativeContract.Read<TacScreen>(cockpit,"tacScreen");targetRoot=NativeContract.Read<GameObject>(tac,"targetCamDisplay");landingRoot=NativeContract.Read<GameObject>(tac,"landingCamDisplay");
             image.texture=owned;
         }
-        internal bool IsCurrent(PodContext context) => Held&&tac!=null&&targetRoot!=null&&landingRoot!=null&&
-            ReferenceEquals(NativeContract.Read<TacScreen>(context.Aircraft.cockpit,"tacScreen"),tac)&&
+        internal bool IsCurrent(PodContext context) => Held&&cockpit!=null&&ReferenceEquals(NativeContract.ResolveCockpit(context,out _),cockpit)&&tac!=null&&targetRoot!=null&&landingRoot!=null&&
+            ReferenceEquals(NativeContract.Read<TacScreen>(cockpit,"tacScreen"),tac)&&
             ReferenceEquals(NativeContract.Read<GameObject>(tac,"targetCamDisplay"),targetRoot)&&
             ReferenceEquals(NativeContract.Read<GameObject>(tac,"landingCamDisplay"),landingRoot)&&
             ReferenceEquals(context.Camera.targetTexture,original)&&
@@ -67,7 +84,7 @@ namespace NuclearOptionTargetingPod
             if(!manual){ReleaseActivation();return;}
             if(display==null)
             {
-                var tac=NativeContract.Read<TacScreen>(context.Aircraft.cockpit,"tacScreen");
+                var tac=NativeContract.Read<TacScreen>(cockpit,"tacScreen");
                 display=NativeContract.Read<GameObject>(tac,"targetCamDisplay");
                 if(display==null||image==null||!image.transform.IsChildOf(display.transform))throw new InvalidOperationException("Target activation proof lost");
                 nativeActive=display.activeSelf;targetCam=context.TargetCam;targetCam.onCamToggle+=NativeToggle;

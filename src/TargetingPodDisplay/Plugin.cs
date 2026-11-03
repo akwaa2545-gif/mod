@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 namespace NuclearOptionTargetingPod
 {
-    [BepInPlugin(Id,"Targeting Pod Display","0.1.0")]
+    [BepInPlugin(Id,"Targeting Pod Display","0.1.1")]
     [DefaultExecutionOrder(10000)]
     public sealed class Plugin : BaseUnityPlugin
     {
@@ -30,6 +30,7 @@ namespace NuclearOptionTargetingPod
         private RenderTexture source;
         private bool compatible,fullscreen,faulted,manual,renderingOwned;
         private string status="Disabled";
+        private string keyStatus="";
         private int renderedFrame=-1;
         private void Awake()
         {
@@ -45,6 +46,7 @@ namespace NuclearOptionTargetingPod
             RenderPipelineManager.endFrameRendering+=AfterFrame;
         }
         private void SetStatus(string value){if(status==value)return;status=value;Logger.LogInfo(value);}
+        private void SetKeyStatus(string value){if(keyStatus==value)return;keyStatus=value;Logger.LogInfo(value);}
         private bool KeysReady()=>DedicatedKeys.Available(fullKey.Value,manualKey.Value,SensorKeys(),out _);
         private void LateUpdate()
         {
@@ -57,7 +59,8 @@ namespace NuclearOptionTargetingPod
                 context=live;
                 bool arbitration=ObserverArbitration.Available();
                 bool keys=DedicatedKeys.Available(fullKey.Value,manualKey.Value,SensorKeys(),out var keyReason);
-                if(!arbitration||!keys||manual&&!confirmedKeys.Value){if(manual||fullscreen){Release();return;}if(!keys)SetStatus(keyReason);}
+                if(!keys)SetKeyStatus(keyReason);else keyStatus="";
+                if(!arbitration||!keys||manual&&!confirmedKeys.Value){if(manual||fullscreen){Release();return;}}
                 if(rearmed&&arbitration&&keys&&confirmedKeys.Value&&manualKey.Value!=KeyCode.None&&Input.GetKeyDown(manualKey.Value)&&(!manual&&!SensorKeyHeld()||manual))
                 {
                     manual=!manual;binding?.Dispose();binding=null;presentation?.Dispose();presentation=null;

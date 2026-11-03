@@ -33,6 +33,13 @@ class TargetingContract(unittest.TestCase):
         self.assertLess(s.index('RenderTargetScope.Run'),s.index('Graphics.Blit(source,Output)'))
         self.assertIn('finally { GL.PopMatrix(); }',s)
         self.assertNotIn('Destroy(source)',s)
+    def test_cockpit_component_is_not_aircraft_damage_marker(self):
+        s=read('NativeContract.cs')
+        self.assertIn('GetComponentsInChildren<Cockpit>(true)',s)
+        self.assertIn('Read<Aircraft>(candidate,"aircraft")',s)
+        self.assertNotIn('Read<TacScreen>(context.Aircraft.cockpit',s)
+        self.assertNotIn('var cockpit=context.Aircraft.cockpit;',s)
+        self.assertIn('ResolveCockpit(context,out reason)',s)
     def test_unique_structural_consumer(self):
         s=read('NativeContract.cs')
         for token in ('"tacScreen"','"targetCamDisplay"','"landingCamDisplay"','IsChildOf','DisplayPolicy.Unique(matches)','ReferenceEquals(images[i].texture,source)','GetComponentsInChildren<Renderer>'):
@@ -54,6 +61,22 @@ class TargetingContract(unittest.TestCase):
         ui=s[s.index('internal static bool UiClear()'):]
         self.assertIn('GameplayUI.AllowPauseKeybind',ui)
         self.assertIn('CursorManager.GetFlags()==CursorFlags.None',ui)
+    def test_key_failure_diagnostics_do_not_alternate_with_cockpit_status(self):
+        s=read('Plugin.cs')
+        self.assertIn('private string keyStatus=',s)
+        self.assertIn('if(!keys)SetKeyStatus(keyReason);else keyStatus="";',s)
+        self.assertNotIn('SetStatus(keyReason)',s)
+    def test_invalid_toggle_reason_names_setting_and_value(self):
+        s=read('DedicatedKeys.cs')
+        self.assertIn('"Keys.Fullscreen="+fullscreen',s)
+        self.assertIn('"Keys.ManualSensor="+manual',s)
+        self.assertIn('Choose None, F1-F6 or F12.',s)
+    def test_fullscreen_does_not_require_cockpit_binding(self):
+        s=read('Plugin.cs');context=read('PodContext.cs')
+        self.assertIn('if(cockpitConfig.Value&&binding==null)',s)
+        self.assertIn('if(image!=null)binding=new CockpitBinding',s)
+        self.assertNotIn('ResolveCockpit',context)
+        self.assertNotIn('binding==null)return',s)
     def test_key_collision_proof_not_remapping(self):
         s=read('DedicatedKeys.cs')
         for token in ('ReInput.players.AllPlayers','GetAllMaps(ControllerType.Keyboard)','map.AllMaps','element.keyCode','maps>128','elements>4096'):
