@@ -87,6 +87,83 @@ Check(CockpitOwnerPolicy.Unique(new[]{new FakeCockpitPresenter(localAircraft,fal
 Check(CockpitOwnerPolicy.Unique(new[]{cockpitPresenter,new FakeCockpitPresenter(localAircraft,true)},localAircraft,c=>c.Owner,c=>c.Initialized)==null,"ambiguous local presenters rejected");
 Check(CockpitOwnerPolicy.Unique(new[]{cockpitPresenter},localAircraft,c=>c.Owner,c=>c.Initialized,0)==null,"bounded search refuses overflow");
 Console.WriteLine($"{count} total targeting display assertions passed after cockpit owner regression.");
+// Normal local complex physics reparents intact parts out of the Aircraft transform.
+Check(CockpitOwnerPolicy.CanUseRegisteredPart(true,false,true,true),"registered intact root may be outside aircraft transform");
+Check(!CockpitOwnerPolicy.CanUseRegisteredPart(false,false,true,true),"remote registered part rejected");
+Check(!CockpitOwnerPolicy.CanUseRegisteredPart(true,true,true,true),"damaged detached root rejected");
+Check(!CockpitOwnerPolicy.CanUseRegisteredPart(true,false,false,true),"unloaded part rejected");
+Check(!CockpitOwnerPolicy.CanUseRegisteredPart(true,false,true,false),"foreign scene part rejected");
+Check(CockpitOwnerPolicy.Unique(new[]{cockpitPresenter,cockpitPresenter},localAircraft,c=>c.Owner,c=>c.Initialized)==cockpitPresenter,"overlapping registered roots deduplicate same component");
+var ownerHandleA=new FakeNativeHandle(7);var ownerHandleB=new FakeNativeHandle(7);
+Check(CockpitOwnerPolicy.Unique(new[]{new FakeCockpitPresenter(ownerHandleA,true)},ownerHandleB,c=>c.Owner,c=>c.Initialized,sameOwner:(a,b)=>a is FakeNativeHandle x&&b is FakeNativeHandle y&&x.Id==y.Id)!=null,"native owner identity can match separate managed wrappers");
+Check(CockpitOwnerPolicy.Unique(new[]{new FakeCockpitPresenter(ownerHandleA,true)},new FakeNativeHandle(8),c=>c.Owner,c=>c.Initialized,sameOwner:(a,b)=>a is FakeNativeHandle x&&b is FakeNativeHandle y&&x.Id==y.Id)==null,"different native owner identity rejected");
+Console.WriteLine($"{count} total targeting display assertions passed after registered-root regression.");
+Check(CockpitOwnerPolicy.CanUseCandidate(true,true,false),"intact registered containing part outside aircraft root accepted");
+Check(!CockpitOwnerPolicy.CanUseCandidate(true,false,true),"nested detached or deregistered part cannot inherit approved ancestor");
+Check(CockpitOwnerPolicy.CanUseCandidate(false,false,true),"presenter directly on main aircraft hierarchy accepted");
+Check(!CockpitOwnerPolicy.CanUseCandidate(false,false,false),"unregistered unrelated root rejected");
+Console.WriteLine($"{count} total targeting display assertions passed.");
+var registeredParts=new List<RegisteredPart>();
+var normalPart=new RegisteredPart(localAircraft);registeredParts.Add(normalPart);
+var registeredPresenter=new RegisteredPresenter(localAircraft,normalPart);
+RegisteredPresenter? ResolveRegistered(params RegisteredPresenter[] candidates)=>CockpitOwnerPolicy.Unique(candidates,localAircraft,c=>c.Owner,
+ c=>c.Initialized&&CockpitOwnerPolicy.AttachedToRegistry(c,registeredParts,x=>x.Part,p=>ReferenceEquals(p.Owner,localAircraft)&&!p.Detached,x=>x.InMainRoot));
+Check(ResolveRegistered(registeredPresenter)==registeredPresenter,"registry fixture nested presenter resolved");
+registeredPresenter.InMainRoot=false;
+Check(ResolveRegistered(registeredPresenter)==registeredPresenter,"registry fixture normal unparent retains presentation");
+registeredParts.Remove(normalPart);
+Check(ResolveRegistered(registeredPresenter)==null,"registry removal rejects stale owner and transform");
+registeredParts.Add(normalPart);
+Check(ResolveRegistered(registeredPresenter)==registeredPresenter,"registry re-add permits valid owner again");
+normalPart.Detached=true;registeredPresenter.InMainRoot=true;
+Check(ResolveRegistered(registeredPresenter)==null,"nested damaged part cannot inherit aircraft root proof");
+normalPart.Detached=false;normalPart.Owner=remoteAircraft;
+Check(ResolveRegistered(registeredPresenter)==null,"registered remote part rejects stale presenter owner");
+normalPart.Owner=localAircraft;
+Check(ResolveRegistered(registeredPresenter,registeredPresenter)==registeredPresenter,"overlapping root enumerations still one component");
+Console.WriteLine($"{count} total targeting display assertions passed after mutable registry fixture.");
+var renderMain=new RenderFlag(true);var renderCockpit=new RenderFlag(true);
+var renderLease=new RenderLease<RenderFlag>(renderMain,renderCockpit,x=>x.Enabled,(x,v)=>x.Enabled=v);
+Check(!renderMain.Enabled&&!renderCockpit.Enabled,"lease suppresses only captured render flags");
+Check(renderLease.Owns(renderMain),"exact disabled main accepted by context");
+Check(!renderLease.Owns(new RenderFlag(false)),"unrelated disabled camera rejected");
+renderLease.Release(false);
+Check(renderMain.Enabled&&!renderCockpit.Enabled,"state switch restores main but leaves new cockpit choice");
+renderMain.Enabled=true;renderCockpit.Enabled=true;
+renderLease=new RenderLease<RenderFlag>(renderMain,renderCockpit,x=>x.Enabled,(x,v)=>x.Enabled=v);
+renderLease.Release(true);
+Check(renderMain.Enabled&&renderCockpit.Enabled,"same owner restores both captured values");
+renderLease.Release(true);Check(renderMain.Enabled,"release idempotent");
+renderMain.Enabled=true;renderCockpit.Enabled=false;
+renderLease=new RenderLease<RenderFlag>(renderMain,renderCockpit,x=>x.Enabled,(x,v)=>x.Enabled=v);
+renderMain.Enabled=true;
+Check(!renderLease.Owns(renderMain),"external render reactivation loses ownership");
+renderLease.Release(true);Check(renderMain.Enabled&&!renderCockpit.Enabled,"restore respects successor and original disabled cockpit");
+Console.WriteLine($"{count} total targeting display assertions including direct render lease.");
+Check(DisplayPolicy.SurfaceMissile(true,1,0,0),"native surface-role missile gets long reticle");
+Check(!DisplayPolicy.SurfaceMissile(true,1,1,0),"ambiguous multirole missile remains generic");
+Check(!DisplayPolicy.SurfaceMissile(true,0,1,0),"air missile remains generic");
+Check(!DisplayPolicy.SurfaceMissile(false,1,0,0),"bomb never gets missile reticle");
+Check(!DisplayPolicy.SurfaceMissile(true,float.NaN,0,0),"invalid surface role remains generic");
+Console.WriteLine($"{count} total targeting display assertions including surface-role symbology.");
+var rasterCadence=new OverlayRefreshPolicy();
+Check(rasterCadence.ShouldRefresh(1,"target1|SHOOT",1024,1024),"first raster rendered");
+Check(!rasterCadence.ShouldRefresh(1.1,"target1|SHOOT",1024,1024),"unchanged numeric telemetry throttled");
+Check(rasterCadence.ShouldRefresh(1.11,"target2|",1024,1024),"target and expired hint invalidate immediately");
+Check(rasterCadence.ShouldRefresh(1.12,"target2|MANUAL",1024,1024),"view mode invalidates immediately");
+Check(rasterCadence.ShouldRefresh(1.13,"target2|MANUAL",1024,576),"fullscreen dimensions invalidate immediately");
+Check(!rasterCadence.ShouldRefresh(1.2,"target2|MANUAL",1024,576),"unchanged dimensions remain throttled");
+Check(rasterCadence.ShouldRefresh(1.4,"target2|MANUAL",1024,576),"numeric telemetry eventually refreshes");
+Console.WriteLine($"{count} total targeting display assertions including semantic raster invalidation.");
+Check(DisplayPolicy.OutputSize(256,128).Width==1024&&DisplayPolicy.OutputSize(256,128).Height==512,"wide native feed aspect preserved");
+Check(DisplayPolicy.OutputSize(128,256).Width==512&&DisplayPolicy.OutputSize(128,256).Height==1024,"portrait native feed aspect preserved");
+Check(DisplayPolicy.OutputSize(256,256).Width==1024,"small square feed gets readable raster");
+Check(DisplayPolicy.OutputSize(4096,64).Width==0,"extreme unsupported aspect fails closed instead of distorting");
+Console.WriteLine($"{count} total targeting display assertions including native aspect preservation.");
+sealed class RenderFlag { public bool Enabled;public RenderFlag(bool value){Enabled=value;} }
+sealed class RegisteredPart { public object Owner; public bool Detached; public RegisteredPart(object owner){Owner=owner;} }
+sealed class RegisteredPresenter { public object Owner;public RegisteredPart? Part;public bool Initialized=true,InMainRoot=true;public RegisteredPresenter(object owner,RegisteredPart? part){Owner=owner;Part=part;} }
+sealed class FakeNativeHandle { public int Id {get;} public FakeNativeHandle(int id){Id=id;} }
 sealed class FakeDamagePart { }
 sealed class FakeCockpitPresenter
 {

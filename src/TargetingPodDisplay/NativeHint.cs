@@ -10,6 +10,7 @@ namespace NuclearOptionTargetingPod
         private WeaponStation previousStation;
         private Unit[] previousTargets=Array.Empty<Unit>();
         private float changedAt;
+        internal void Clear(){previousState=null;previousStation=null;previousTargets=Array.Empty<Unit>();changedAt=0;}
         internal string Read(PodContext context)
         {
             var hud=SceneSingleton<CombatHUD>.i;

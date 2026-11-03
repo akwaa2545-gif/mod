@@ -21,7 +21,7 @@ namespace NuclearOptionTargetingPod
             foreach(var a in AppDomain.CurrentDomain.GetAssemblies()) if(a.GetName().Name=="Observer")return true;
             return false;
         }
-        internal static bool TryGet(out PodContext value)
+        internal static bool TryGet(out PodContext value,FullscreenCameraLease lease=null)
         {
             value=null;
             if(GameManager.gameState!=GameState.SinglePlayer || !NetworkManagerNuclearOption.IsLoaded || NetworkManagerNuclearOption.IsLoadingScene)return false;
@@ -39,7 +39,7 @@ namespace NuclearOptionTargetingPod
                 if(local!=null)return false; local=pilot;
             }
             var view=SceneSingleton<CameraStateManager>.i; var scene=SceneManager.GetActiveScene();
-            if(local==null||view==null||!view.isActiveAndEnabled||view.mainCamera==null||!view.mainCamera.isActiveAndEnabled||!ReferenceEquals(view.followingUnit,aircraft)||!scene.IsValid()||!scene.isLoaded||!aircraft.gameObject.scene.isLoaded||!view.gameObject.scene.isLoaded)return false;
+            if(local==null||view==null||!view.isActiveAndEnabled||view.mainCamera==null||(lease!=null?!lease.Allows(view):!view.mainCamera.isActiveAndEnabled)||!ReferenceEquals(view.followingUnit,aircraft)||!scene.IsValid()||!scene.isLoaded||!aircraft.gameObject.scene.isLoaded||!view.gameObject.scene.isLoaded)return false;
             if(!ReferenceEquals(view.currentState,view.cockpitState))return false;
             var camera=NativeContract.Read<Camera>(aircraft.targetCam,"cam");
             if(camera==null)return false;

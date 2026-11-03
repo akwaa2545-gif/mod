@@ -7,7 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <AssemblyName>TargetingPodDisplay</AssemblyName>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <GameRefs Condition="'$(GameRefs)' == ''">$(MSBuildThisFileDirectory)../../private/refs</GameRefs>
     <LoaderRefs Condition="'$(LoaderRefs)' == ''">/workspace/shared/nuclear-option-tools/bepinex-5.4.23.5/core</LoaderRefs>
   </PropertyGroup>

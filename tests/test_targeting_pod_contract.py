@@ -33,6 +33,18 @@ class TargetingContract(unittest.TestCase):
         self.assertLess(s.index('RenderTargetScope.Run'),s.index('Graphics.Blit(source,Output)'))
         self.assertIn('finally { GL.PopMatrix(); }',s)
         self.assertNotIn('Destroy(source)',s)
+    def test_registered_parts_cover_normal_physics_reparenting(self):
+        s=read('NativeContract.cs')
+        self.assertIn('context.Aircraft.partLookup',s)
+        self.assertIn('CockpitOwnerPolicy.CanUseRegisteredPart(',s)
+        self.assertIn('part.IsDetached()',s)
+        self.assertIn('part.parentUnit==context.Aircraft',s)
+        self.assertIn('item.GetComponentInParent<UnitPart>(true)',s)
+        self.assertIn('AttachedToRegistry(candidate,context.Aircraft.partLookup',s)
+        self.assertIn('registry.Contains(part)&&validPart(part)',read('CockpitOwnerPolicy.cs'))
+        self.assertNotIn('FindObjectsOfType',s)
+        self.assertIn('owned=',s)
+        self.assertIn('uninitialized=',s)
     def test_cockpit_component_is_not_aircraft_damage_marker(self):
         s=read('NativeContract.cs')
         self.assertIn('GetComponentsInChildren<Cockpit>(true)',s)
@@ -94,8 +106,8 @@ class TargetingContract(unittest.TestCase):
             self.assertIn(token,s)
     def test_no_fake_thermal_or_seeker(self):
         s=read('Presentation.cs')
-        self.assertIn('THERM N/A',s);self.assertIn('WPN LOCK N/A',s);self.assertIn('NIGHT N/A',s)
-        self.assertIn('COLOR (OWN CAMERA)',s)
+        self.assertIn('Tracking=false',s);self.assertIn('Laser="LSR N/A"',s)
+        self.assertIn('DisplayPolicy.Sensor(context.TargetCam.UsingIR())',s)
         self.assertNotIn('WPN LOCKED',s)
     def test_same_presentation_texture_fullscreen(self):
         s=read('Plugin.cs')
